@@ -1,0 +1,23 @@
+# 构建产物
+output/
+*.exe
+
+# Node.js 临时文件
+node_modules/
+npm-debug.log*
+
+# 系统文件
+Thumbs.db
+Desktop.ini
+*.tmp
+*~
+
+# IDE
+.vscode/
+.idea/
+
+# Claude Code local config
+.claude/
+
+# 大型二进制文件 (通过 download-msi.ps1 下载)
+*.msi
