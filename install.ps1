@@ -5,20 +5,22 @@
 
 param(
     [switch]$Silent = $false,
-    [switch]$SkipVSCode = $false,
+    [switch]$SkipGit = $false,
     [switch]$SkipNode = $false,
+    [switch]$SkipVSCode = $false,
     [switch]$SkipClaude = $false,
     [switch]$SkipCCSwitch = $false
 )
 
 $ErrorActionPreference = "Stop"
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+$PackagesDir = Join-Path $ScriptDir "packages"
 $LogFile = Join-Path $env:TEMP "cc_setup_log.txt"
-$VsCodeInstaller = Join-Path $env:TEMP "VSCodeSetup.exe"
 $TotalSteps = 0
 $CurrentStep = 0
 
 # Count enabled steps
+if (-not $SkipGit) { $TotalSteps++ }
 if (-not $SkipNode) { $TotalSteps++ }
 if (-not $SkipVSCode) { $TotalSteps++ }
 if (-not $SkipClaude) { $TotalSteps++ }
@@ -73,6 +75,24 @@ function Install-MSI {
     }
 }
 
+function Install-EXE {
+    param([string]$ExePath, [string]$Name, [string[]]$Arguments)
+    Write-Log "Installing $Name ..." -Color Yellow
+    if (-not (Test-Path $ExePath)) {
+        Write-Log "ERROR: Cannot find $ExePath" -Color Red
+        return $false
+    }
+    $process = Start-Process -FilePath $ExePath -ArgumentList $Arguments -Wait -PassThru -NoNewWindow
+    if ($process.ExitCode -eq 0) {
+        Write-Log "$Name installed successfully" -Color Green
+        return $true
+    }
+    else {
+        Write-Log "$Name installation failed (exit code: $($process.ExitCode))" -Color Red
+        return $false
+    }
+}
+
 function Update-SystemPath {
     $env:Path = [System.Environment]::GetEnvironmentVariable("Path", "Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path", "User")
 }
@@ -95,11 +115,12 @@ function Test-Command {
 Clear-Host
 Write-Host "============================================================" -ForegroundColor Cyan
 Write-Host "  VS Code + Claude Code + CC-Switch Setup" -ForegroundColor Cyan
-Write-Host "  Version: 1.0.0" -ForegroundColor Cyan
+Write-Host "  Version: 2.0.0" -ForegroundColor Cyan
 Write-Host "============================================================" -ForegroundColor Cyan
 Write-Host ""
 Write-Log "Setup started" -Color White
 Write-Log "Script directory: $ScriptDir"
+Write-Log "Packages directory: $PackagesDir"
 
 # Check admin privileges
 if (-not (Test-Admin)) {
@@ -107,8 +128,9 @@ if (-not (Test-Admin)) {
     Start-Sleep -Seconds 1
     $argString = "-NoProfile -ExecutionPolicy Bypass -File `"$($MyInvocation.MyCommand.Path)`""
     if ($Silent) { $argString += " -Silent" }
-    if ($SkipVSCode) { $argString += " -SkipVSCode" }
+    if ($SkipGit) { $argString += " -SkipGit" }
     if ($SkipNode) { $argString += " -SkipNode" }
+    if ($SkipVSCode) { $argString += " -SkipVSCode" }
     if ($SkipClaude) { $argString += " -SkipClaude" }
     if ($SkipCCSwitch) { $argString += " -SkipCCSwitch" }
     Start-Process -FilePath "powershell.exe" -Verb RunAs -ArgumentList $argString -Wait
@@ -117,11 +139,43 @@ if (-not (Test-Admin)) {
 Write-Log "Administrator privileges confirmed" -Color Green
 
 # ============================================================
-# 1. Node.js
+# 1. Git
+# ============================================================
+if (-not $SkipGit) {
+    Write-Step "Install Git"
+    $gitExe = Join-Path $PackagesDir "Git-2.54.0-64-bit.exe"
+    $gitAlreadyInstalled = $false
+
+    $existingGit = Test-Command "git" "--version"
+    if ($existingGit) {
+        Write-Log "Git is already installed: $existingGit, skipping" -Color Green
+        $gitAlreadyInstalled = $true
+    }
+
+    if (-not $gitAlreadyInstalled) {
+        if (-not (Test-Path $gitExe)) {
+            Write-Log "ERROR: Cannot find Git-2.54.0-64-bit.exe in packages/" -Color Red
+            if (-not $Silent) { Read-Host "Press Enter to exit" }
+            exit 1
+        }
+        if (Install-EXE $gitExe "Git" @("/VERYSILENT", "/NORESTART", "/SUPPRESSMSGBOXES", "/NOCANCEL", "/SP-", "/CLOSEAPPLICATIONS", "/RESTARTAPPLICATIONS", "/COMPONENTS=icons,ext,ext\shellhere,ext\cmdhere,gitlfs,assoc,assoc_sh")) {
+            Update-SystemPath
+            Write-Log "Git installed: $(Test-Command 'git' '--version')" -Color Green
+        }
+        else {
+            Write-Log "Git installation failed" -Color Red
+            if (-not $Silent) { Read-Host "Press Enter to exit" }
+            exit 1
+        }
+    }
+}
+
+# ============================================================
+# 2. Node.js
 # ============================================================
 if (-not $SkipNode) {
     Write-Step "Install Node.js v24.16.0"
-    $nodeMsi = Join-Path $ScriptDir "packages\node-v24.16.0-x64.msi"
+    $nodeMsi = Join-Path $PackagesDir "node-v24.16.0-x64.msi"
     $nodeAlreadyInstalled = $false
 
     $existingNode = Test-Command "node" "-v"
@@ -135,8 +189,7 @@ if (-not $SkipNode) {
 
     if (-not $nodeAlreadyInstalled) {
         if (-not (Test-Path $nodeMsi)) {
-            Write-Log "ERROR: Cannot find node-v24.16.0-x64.msi" -Color Red
-            Write-Log "Please place the MSI file in the same directory as this script" -Color Red
+            Write-Log "ERROR: Cannot find node-v24.16.0-x64.msi in packages/" -Color Red
             if (-not $Silent) { Read-Host "Press Enter to exit" }
             exit 1
         }
@@ -153,10 +206,11 @@ if (-not $SkipNode) {
 }
 
 # ============================================================
-# 2. VS Code
+# 3. VS Code (local installer)
 # ============================================================
 if (-not $SkipVSCode) {
     Write-Step "Install Visual Studio Code"
+    $vscodeExe = Join-Path $PackagesDir "VSCodeUserSetup-x64-1.122.1.exe"
     $codeInstalled = $false
 
     if (Test-Command "code" "--version") {
@@ -165,39 +219,25 @@ if (-not $SkipVSCode) {
     }
 
     if (-not $codeInstalled) {
-        # Try winget first
-        try {
-            $null = & winget --version 2>$null
-            Write-Log "Using winget to install VS Code..." -Color Yellow
-            & winget install --id Microsoft.VisualStudioCode --silent --accept-package-agreements --accept-source-agreements
-            if ($LASTEXITCODE -eq 0) {
-                Write-Log "VS Code installed via winget" -Color Green
-                $codeInstalled = $true
-            }
+        if (-not (Test-Path $vscodeExe)) {
+            Write-Log "ERROR: Cannot find VSCodeUserSetup-x64-1.122.1.exe in packages/" -Color Red
+            if (-not $Silent) { Read-Host "Press Enter to exit" }
+            exit 1
         }
-        catch { }
-
-        if (-not $codeInstalled) {
-            # Fallback: direct download
-            Write-Log "Downloading VS Code installer..." -Color Yellow
-            $vscodeUrl = "https://update.code.visualstudio.com/latest/win32-x64-user/stable"
-            try {
-                [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.SecurityProtocolType]::Tls12
-                Invoke-WebRequest -Uri $vscodeUrl -OutFile $VsCodeInstaller -UseBasicParsing
-                Write-Log "Download complete. Installing..." -Color Yellow
-                Start-Process -FilePath $VsCodeInstaller -ArgumentList "/verysilent /norestart /mergetasks=!runcode,addcontextmenufiles,addcontextmenufolders,associatewithfiles,addtopath" -Wait
-                Write-Log "VS Code installed" -Color Green
-            }
-            catch {
-                Write-Log "VS Code download/install failed: $_" -Color Red
-                Write-Log "Please install VS Code manually from https://code.visualstudio.com" -Color Yellow
-            }
+        if (Install-EXE $vscodeExe "VS Code" @("/VERYSILENT", "/NORESTART", "/MERGETASKS=!runcode,addcontextmenufiles,addcontextmenufolders,associatewithfiles,addtopath")) {
+            Update-SystemPath
+            Write-Log "VS Code installed" -Color Green
+        }
+        else {
+            Write-Log "VS Code installation failed" -Color Red
+            if (-not $Silent) { Read-Host "Press Enter to exit" }
+            exit 1
         }
     }
 }
 
 # ============================================================
-# 3. Claude Code
+# 4. Claude Code CLI
 # ============================================================
 if (-not $SkipClaude) {
     Write-Step "Install Claude Code CLI"
@@ -220,7 +260,7 @@ if (-not $SkipClaude) {
     $process = Start-Process -FilePath "npm" -ArgumentList $npmArgs -Wait -PassThru -NoNewWindow
 
     if ($process.ExitCode -eq 0) {
-        Write-Log "Claude Code installed successfully" -Color Green
+        Write-Log "Claude Code CLI installed successfully" -Color Green
         $ccVer = Test-Command "claude" "--version"
         if ($ccVer) {
             Write-Log "Claude Code version: $ccVer" -Color Green
@@ -230,25 +270,56 @@ if (-not $SkipClaude) {
         }
     }
     else {
-        Write-Log "Claude Code installation failed (exit code: $($process.ExitCode))" -Color Red
+        Write-Log "Claude Code CLI installation failed (exit code: $($process.ExitCode))" -Color Red
         Write-Log "Check network connection or try: npm install -g @anthropic-ai/claude-code" -Color Yellow
+    }
+
+    # Install Claude Code VS Code extension
+    Write-Log "Installing Claude Code extension for VS Code..." -Color Yellow
+    Update-SystemPath
+    $codeCmd = $null
+
+    # Try 'code' from PATH
+    try { $codeCmd = Get-Command "code" -ErrorAction Stop } catch {}
+
+    # Fallback: try common VS Code install location
+    if (-not $codeCmd) {
+        $vscodePath = Join-Path $env:LOCALAPPDATA "Programs\Microsoft VS Code\bin\code.cmd"
+        if (Test-Path $vscodePath) {
+            $codeCmd = $vscodePath
+        }
+    }
+
+    if ($codeCmd) {
+        $extProcess = Start-Process -FilePath "code" -ArgumentList @("--install-extension", "anthropic.claude-code", "--force") -Wait -PassThru -NoNewWindow
+        if ($extProcess.ExitCode -eq 0) {
+            Write-Log "Claude Code VS Code extension installed" -Color Green
+        }
+        else {
+            Write-Log "Claude Code VS Code extension installation failed (exit code: $($extProcess.ExitCode))" -Color Yellow
+            Write-Log "You can install it manually: code --install-extension anthropic.claude-code" -Color Yellow
+        }
+    }
+    else {
+        Write-Log "VS Code 'code' command not found in PATH, skipping extension install" -Color Yellow
+        Write-Log "After reboot, run: code --install-extension anthropic.claude-code" -Color Yellow
     }
 }
 
 # ============================================================
-# 4. CC-Switch
+# 5. CC-Switch
 # ============================================================
 if (-not $SkipCCSwitch) {
     Write-Step "Install CC-Switch v3.16.0"
 
-    $ccSwitchMsi = Join-Path $ScriptDir "packages\CC-Switch-v3.16.0-Windows.msi"
+    $ccSwitchMsi = Join-Path $PackagesDir "CC-Switch-v3.16.0-Windows.msi"
     if (Test-Path $ccSwitchMsi) {
         if (-not (Install-MSI $ccSwitchMsi "CC-Switch")) {
             Write-Log "CC-Switch installation failed" -Color Red
         }
     }
     else {
-        Write-Log "ERROR: Cannot find CC-Switch-v3.16.0-Windows.msi" -Color Red
+        Write-Log "ERROR: Cannot find CC-Switch-v3.16.0-Windows.msi in packages/" -Color Red
     }
 }
 
@@ -262,17 +333,22 @@ Write-Host "============================================================" -Foreg
 Write-Host ""
 Write-Log "===== Installation Summary =====" -Color White
 
-$results = @()
+# Verify Git
+$gitVer = Test-Command "git" "--version"
+if ($gitVer) {
+    Write-Log "  [PASS] Git: $gitVer" -Color Green
+}
+else {
+    Write-Log "  [FAIL] Git: not detected" -Color Red
+}
 
 # Verify Node.js
 $nodeVer = Test-Command "node" "-v"
 if ($nodeVer) {
     Write-Log "  [PASS] Node.js: $nodeVer" -Color Green
-    $results += "Node.js: OK"
 }
 else {
     Write-Log "  [FAIL] Node.js: not detected" -Color Red
-    $results += "Node.js: FAIL"
 }
 
 # Verify npm
@@ -288,22 +364,18 @@ else {
 $codeVer = Test-Command "code" "--version"
 if ($codeVer) {
     Write-Log "  [PASS] VS Code: $codeVer" -Color Green
-    $results += "VS Code: OK"
 }
 else {
     Write-Log "  [WARN] VS Code: not in PATH (may need reboot)" -Color Yellow
-    $results += "VS Code: check PATH"
 }
 
 # Verify Claude Code
 $ccVer = Test-Command "claude" "--version"
 if ($ccVer) {
     Write-Log "  [PASS] Claude Code: $ccVer" -Color Green
-    $results += "Claude Code: OK"
 }
 else {
     Write-Log "  [WARN] Claude Code: not in PATH (may need reboot)" -Color Yellow
-    $results += "Claude Code: check PATH"
 }
 
 # Verify CC-Switch
@@ -317,13 +389,11 @@ foreach ($dir in $ccSwitchDirs) {
     if (Test-Path $dir) {
         $ccFound = $true
         Write-Log "  [PASS] CC-Switch: $dir" -Color Green
-        $results += "CC-Switch: OK"
         break
     }
 }
 if (-not $ccFound) {
     Write-Log "  [WARN] CC-Switch: please verify installation" -Color Yellow
-    $results += "CC-Switch: check"
 }
 
 Write-Host ""

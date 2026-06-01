@@ -4,9 +4,10 @@
 
 | 组件 | 版本 | 说明 |
 |------|------|------|
+| **Git** | v2.54.0 | 版本控制工具 |
 | **Node.js** | v24.16.0 | JavaScript 运行时，Claude Code 的运行环境 |
-| **Visual Studio Code** | latest | 代码编辑器，支持 Claude Code 扩展 |
-| **Claude Code CLI** | latest | Anthropic 官方 AI 编程助手命令行工具 |
+| **Visual Studio Code** | v1.122.1 | 代码编辑器 |
+| **Claude Code** | latest | Anthropic AI 编程助手（CLI + VS Code 扩展） |
 | **CC-Switch** | v3.16.0 | Claude Code API Key 管理与切换工具 |
 
 ---
@@ -37,8 +38,9 @@ powershell -ExecutionPolicy Bypass -File .\install.ps1
 .\install.ps1 -Silent
 
 # 跳过已安装的组件
-.\install.ps1 -SkipVSCode   # 不装 VS Code
+.\install.ps1 -SkipGit      # 不装 Git
 .\install.ps1 -SkipNode      # 不装 Node.js
+.\install.ps1 -SkipVSCode    # 不装 VS Code
 .\install.ps1 -SkipClaude    # 不装 Claude Code
 .\install.ps1 -SkipCCSwitch  # 不装 CC-Switch
 ```
@@ -49,12 +51,14 @@ powershell -ExecutionPolicy Bypass -File .\install.ps1
 
 ```
 vs-code-claude-cc-switch/
-├── README.md                # 本文件
-├── install.bat              # 双击启动入口
-├── install.ps1              # 核心安装脚本
+├── README.md                              # 本文件
+├── install.bat                            # 双击启动入口
+├── install.ps1                            # 核心安装脚本
 └── packages/
-    ├── node-v24.16.0-x64.msi          # Node.js 安装包
-    └── CC-Switch-v3.16.0-Windows.msi  # CC-Switch 安装包
+    ├── Git-2.54.0-64-bit.exe              # Git 安装包
+    ├── node-v24.16.0-x64.msi              # Node.js 安装包
+    ├── VSCodeUserSetup-x64-1.122.1.exe    # VS Code 安装包
+    └── CC-Switch-v3.16.0-Windows.msi      # CC-Switch 安装包
 ```
 
 ---
@@ -63,21 +67,28 @@ vs-code-claude-cc-switch/
 
 如果自动安装出现问题，可以按以下步骤手动操作：
 
-### 1. 安装 Node.js
+### 1. 安装 Git
+```cmd
+packages\Git-2.54.0-64-bit.exe /VERYSILENT /NORESTART
+```
+
+### 2. 安装 Node.js
 ```cmd
 msiexec /i packages\node-v24.16.0-x64.msi /qn /norestart
 ```
 
-### 2. 安装 VS Code
-- 下载: https://code.visualstudio.com/download
-- 或命令行: `winget install Microsoft.VisualStudioCode`
-
-### 3. 安装 Claude Code
+### 3. 安装 VS Code
 ```cmd
-npm install -g @anthropic-ai/claude-code
+packages\VSCodeUserSetup-x64-1.122.1.exe /VERYSILENT /NORESTART
 ```
 
-### 4. 安装 CC-Switch
+### 4. 安装 Claude Code
+```cmd
+npm install -g @anthropic-ai/claude-code
+code --install-extension anthropic.claude-code
+```
+
+### 5. 安装 CC-Switch
 ```cmd
 msiexec /i packages\CC-Switch-v3.16.0-Windows.msi /qn /norestart
 ```
@@ -89,16 +100,11 @@ msiexec /i packages\CC-Switch-v3.16.0-Windows.msi /qn /norestart
 安装完成后，打开新的终端窗口，运行以下命令验证：
 
 ```powershell
-# 检查 Node.js
-node --version          # 应输出: v24.16.0
-
-# 检查 Claude Code
-claude --version        # 应输出版本信息
-
-# 检查 VS Code
-code --version          # 应输出版本信息
-
-# CC-Switch 在开始菜单中查看
+git --version            # 应输出: git version 2.54.0
+node --version           # 应输出: v24.16.0
+npm --version            # 应输出版本信息
+code --version           # 应输出版本信息
+claude --version         # 应输出版本信息
 ```
 
 ---
