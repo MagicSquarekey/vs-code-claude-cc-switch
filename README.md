@@ -17,7 +17,7 @@
 ### 1. 克隆仓库
 
 ```bash
-git clone https://github.com/MagicSquarekey/vs-code-claude-cc-switch.git
+git clone https://github.com/MagicSquarekey/VScode-ClaudeCode-CCSwitch-Git-Nodejs.git
 cd vs-code-claude-cc-switch
 ```
 
