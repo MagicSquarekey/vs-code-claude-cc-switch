@@ -1,6 +1,6 @@
 # VS Code + Claude Code + CC-Switch 一键部署工具
 
-适用于 Windows 10/11 x64 系统的一键安装包，自动完成以下软件的安装和配置：
+适用于 Windows 10/11 x64 系统的一键安装脚本，自动完成以下软件的安装和配置：
 
 | 组件 | 版本 | 说明 |
 |------|------|------|
@@ -13,13 +13,18 @@
 
 ## 🚀 快速开始
 
-### 方法一：EXE 安装包（推荐）
+### 1. 克隆仓库
 
-直接双击 `Setup-VSCode-Claude-CC.exe`，按提示完成安装。
+```bash
+git clone https://github.com/MagicSquarekey/vs-code-claude-cc-switch.git
+cd vs-code-claude-cc-switch
+```
 
-### 方法二：PowerShell 脚本
+### 2. 双击运行
 
-右键 `install.ps1` → **使用 PowerShell 运行**，或：
+双击 `install.bat`，按提示完成安装（需要管理员权限）。
+
+或通过命令行：
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\install.ps1
@@ -40,19 +45,16 @@ powershell -ExecutionPolicy Bypass -File .\install.ps1
 
 ---
 
-## 📦 文件说明
+## 📦 文件结构
 
 ```
-├── Setup-VSCode-Claude-CC.exe       # 一键安装包 (自包含, 43MB)
-├── install.ps1                      # 核心安装脚本
-├── install.bat                      # 双击启动批处理
-├── Bootstrap.cs                     # C# 启动器 (嵌入资源解压)
-├── build-exe.ps1                    # EXE 构建脚本
-├── download-msi.ps1                 # MSI 下载辅助脚本
-├── node-v24.16.0-x64.msi            # Node.js 安装包
-├── CC-Switch-v3.16.0-Windows.msi    # CC-Switch 安装包
-├── setup.iss                        # Inno Setup 打包脚本 (备选方案)
-└── README.md                        # 本文件
+vs-code-claude-cc-switch/
+├── README.md                # 本文件
+├── install.bat              # 双击启动入口
+├── install.ps1              # 核心安装脚本
+└── packages/
+    ├── node-v24.16.0-x64.msi          # Node.js 安装包
+    └── CC-Switch-v3.16.0-Windows.msi  # CC-Switch 安装包
 ```
 
 ---
@@ -63,7 +65,7 @@ powershell -ExecutionPolicy Bypass -File .\install.ps1
 
 ### 1. 安装 Node.js
 ```cmd
-msiexec /i node-v24.16.0-x64.msi /qn /norestart
+msiexec /i packages\node-v24.16.0-x64.msi /qn /norestart
 ```
 
 ### 2. 安装 VS Code
@@ -77,7 +79,7 @@ npm install -g @anthropic-ai/claude-code
 
 ### 4. 安装 CC-Switch
 ```cmd
-msiexec /i CC-Switch-v3.16.0-Windows.msi /qn /norestart
+msiexec /i packages\CC-Switch-v3.16.0-Windows.msi /qn /norestart
 ```
 
 ---
@@ -115,21 +117,3 @@ Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 **Q: VS Code 没有添加到 PATH**
 - 安装完成后重启电脑
 - 或手动添加 `%LOCALAPPDATA%\Programs\Microsoft VS Code\bin` 到 PATH
-
----
-
-## 🛠 构建 EXE 安装包
-
-需要 .NET Framework 4.x（Windows 10/11 自带），直接运行：
-
-```powershell
-# 完整版：嵌入所有 MSI 文件的自包含 EXE (~43MB)
-.\build-exe.ps1
-
-# 开发模式：轻量 EXE，从同目录读取文件
-.\build-exe.ps1 -NoCompress
-```
-
-构建产物输出到 `output\Setup-VSCode-Claude-CC.exe`。
-
-备选方案：也可使用 [Inno Setup](https://jrsoftware.org/isinfo.php) 打包（见 `setup.iss`）。

@@ -121,7 +121,7 @@ Write-Log "Administrator privileges confirmed" -Color Green
 # ============================================================
 if (-not $SkipNode) {
     Write-Step "Install Node.js v24.16.0"
-    $nodeMsi = Join-Path $ScriptDir "node-v24.16.0-x64.msi"
+    $nodeMsi = Join-Path $ScriptDir "packages\node-v24.16.0-x64.msi"
     $nodeAlreadyInstalled = $false
 
     $existingNode = Test-Command "node" "-v"
@@ -241,7 +241,7 @@ if (-not $SkipClaude) {
 if (-not $SkipCCSwitch) {
     Write-Step "Install CC-Switch v3.16.0"
 
-    $ccSwitchMsi = Join-Path $ScriptDir "CC-Switch-v3.16.0-Windows.msi"
+    $ccSwitchMsi = Join-Path $ScriptDir "packages\CC-Switch-v3.16.0-Windows.msi"
     if (Test-Path $ccSwitchMsi) {
         if (-not (Install-MSI $ccSwitchMsi "CC-Switch")) {
             Write-Log "CC-Switch installation failed" -Color Red
